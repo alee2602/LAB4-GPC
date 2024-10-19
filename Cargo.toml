@@ -1,0 +1,6 @@
+[package]
+name = "LAB4-GPC"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
