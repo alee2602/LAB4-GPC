@@ -1,4 +1,4 @@
-use fragment::Fragment;
+
 use minifb::{Key, Window, WindowOptions};
 use nalgebra_glm::{look_at, perspective, Mat4, Vec3};
 use std::f32::consts::PI;
@@ -14,11 +14,10 @@ mod triangle;
 mod vertex;
 
 use camera::Camera;
-use color::Color;
 use fastnoise_lite::{FastNoiseLite, NoiseType};
 use framebuffer::Framebuffer;
 use obj::Obj;
-use shaders::{vertex_shader, fragment_shader};
+use shaders::{fragment_shader, vertex_shader, ShaderType};
 use triangle::triangle;
 use vertex::Vertex;
 
@@ -116,7 +115,12 @@ fn create_viewport_matrix(width: f32, height: f32) -> Mat4 {
     )
 }
 
-fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+fn render(
+    framebuffer: &mut Framebuffer,
+    uniforms: &Uniforms,
+    vertex_array: &[Vertex],
+    current_shader: &ShaderType,
+) {
     // Vertex Shader
     let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
     for vertex in vertex_array {
@@ -148,7 +152,7 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
         let y = fragment.position.y as usize;
 
         if x < framebuffer.width && y < framebuffer.height {
-            let shaded_color = fragment_shader(&fragment, &uniforms);
+            let shaded_color = fragment_shader(&fragment, &uniforms, current_shader);
             let color = shaded_color.to_hex();
             framebuffer.set_current_color(color);
             framebuffer.point(x, y, fragment.depth);
@@ -191,11 +195,37 @@ fn main() {
 
     let obj = Obj::load("assets/models/sphere.obj").expect("Failed to load obj");
     let vertex_arrays = obj.get_vertex_array();
+    let moon_obj = Obj::load("assets/models/moon.obj").expect("Failed to load moon obj");
+    let moon_vertex_array = moon_obj.get_vertex_array();
+
+    let mut current_shader = ShaderType::RockyPlanet;
     let mut time = 0;
 
     while window.is_open() {
         if window.is_key_down(Key::Escape) {
             break;
+        }
+
+        if window.is_key_down(Key::Key1) {
+            current_shader = ShaderType::GasGiant;
+        }
+        if window.is_key_down(Key::Key2) {
+            current_shader = ShaderType::ColdGasGiant;
+        }
+        if window.is_key_down(Key::Key3) {
+            current_shader = ShaderType::Solar;
+        }
+        if window.is_key_down(Key::Key4) {
+            current_shader = ShaderType::RockyPlanet;
+        }
+        if window.is_key_down(Key::Key5) {
+            current_shader = ShaderType::RockyPlanetVariant;
+        }
+        if window.is_key_down(Key::Key6) {
+            current_shader = ShaderType::AlienPlanet;
+        }
+        if window.is_key_down(Key::Key7) {
+            current_shader = ShaderType::GlacialTextured;
         }
 
         time += 1;
@@ -221,7 +251,37 @@ fn main() {
         };
 
         framebuffer.set_current_color(0xFFDDDD);
-        render(&mut framebuffer, &uniforms, &vertex_arrays);
+        render(&mut framebuffer, &uniforms, &vertex_arrays, &current_shader);
+
+        if current_shader == ShaderType::RockyPlanet {
+            let orbit_radius = 2.0; // Radio de la órbita de la luna alrededor del planeta
+            let orbit_speed = 0.005; // Velocidad de la órbita de la luna
+            let moon_x = orbit_radius * (time as f32 * orbit_speed).cos();
+            let moon_z = orbit_radius * (time as f32 * orbit_speed).sin();
+
+            let moon_translation = Vec3::new(moon_x, 0.0, moon_z);
+            let moon_scale = 0.15; 
+            let moon_model_matrix =
+                create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
+
+            let moon_noise = create_noise(); 
+
+            let moon_uniforms = Uniforms {
+                model_matrix: moon_model_matrix,
+                view_matrix: uniforms.view_matrix,
+                projection_matrix: uniforms.projection_matrix,
+                viewport_matrix: uniforms.viewport_matrix,
+                time: uniforms.time,
+                noise: moon_noise, 
+            };
+            render(
+                &mut framebuffer,
+                &moon_uniforms,
+                &moon_vertex_array,
+                &ShaderType::Moon,
+                
+            );
+        }
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)

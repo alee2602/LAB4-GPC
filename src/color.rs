@@ -68,6 +68,14 @@ impl Color {
 
         Color::new(r, g, b)
     }
+
+    pub fn limit_min(&self, min_value: u8) -> Self {
+        Color {
+            r: self.r.max(min_value),
+            g: self.g.max(min_value),
+            b: self.b.max(min_value),
+        }
+    }
 }
 
 use std::ops::Add;

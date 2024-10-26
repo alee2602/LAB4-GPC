@@ -5,6 +5,18 @@ use crate::Uniforms;
 use nalgebra_glm::{mat4_to_mat3, Mat3, Vec3, Vec4};
 use rand::Rng;
 
+#[derive(PartialEq)]
+pub enum ShaderType {
+    GasGiant,
+    ColdGasGiant,
+    Solar,
+    RockyPlanet,
+    RockyPlanetVariant,
+    AlienPlanet,
+    GlacialTextured,
+    Moon
+}
+
 pub fn vertex_shader(vertex: &Vertex, uniforms: &Uniforms) -> Vertex {
     let position = Vec4::new(vertex.position.x, vertex.position.y, vertex.position.z, 1.0);
 
@@ -35,10 +47,33 @@ pub fn vertex_shader(vertex: &Vertex, uniforms: &Uniforms) -> Vertex {
     }
 }
 
-pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-    //gas_giant_shader(fragment, uniforms)
-    //cold_gas_giant_shader(fragment, uniforms)
-    solar_shader(fragment, uniforms)
+pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms, shader_type: &ShaderType) -> Color {
+    match shader_type {
+        ShaderType::GasGiant => gas_giant_shader(fragment, uniforms),
+        ShaderType::ColdGasGiant => cold_gas_giant_shader(fragment, uniforms),
+        ShaderType::Solar => solar_shader(fragment, uniforms),
+        ShaderType::RockyPlanet => rocky_planet_shader(fragment, uniforms),
+        ShaderType::RockyPlanetVariant => rocky_planet_variant_shader(fragment, uniforms),
+        ShaderType::AlienPlanet => alien_planet_shader(fragment, uniforms),
+        ShaderType::GlacialTextured => glacial_textured_shader(fragment, uniforms),
+        ShaderType::Moon => moon_shader(fragment, uniforms)
+    }
+}
+
+pub fn moon_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let base_color = Color::new(200, 200, 200); // Color gris claro para la luna
+    let light_dir = Vec3::new(0.6, 0.8, 0.4).normalize();
+    let normal = fragment.vertex_position.normalize();
+    let lambertian = light_dir.dot(&normal).max(0.0);
+    let shading_factor = 0.75 + 0.25 * lambertian;
+
+    let noise_value = uniforms.noise.get_noise_2d(
+        fragment.vertex_position.x * 20.0,
+        fragment.vertex_position.y * 20.0,
+    );
+    let final_color = base_color * (shading_factor + noise_value * 0.1);
+
+    final_color * fragment.intensity
 }
 
 pub fn gas_giant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
@@ -262,9 +297,9 @@ pub fn cold_gas_giant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color 
 }
 
 pub fn solar_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-    let bright_color = Color::new(255, 240, 70); 
-    let mid_color = Color::new(255, 100, 0); 
-    let dark_color = Color::new(70, 10, 0); 
+    let bright_color = Color::new(255, 240, 70);
+    let mid_color = Color::new(255, 100, 0);
+    let dark_color = Color::new(70, 10, 0);
 
     let position = Vec3::new(
         fragment.vertex_position.x,
@@ -272,8 +307,8 @@ pub fn solar_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
         fragment.depth,
     );
 
-    let base_frequency = 0.04 + position.x * 0.01; 
-    let pulsate_amplitude = 0.6 + position.y * 0.02; 
+    let base_frequency = 0.04 + position.x * 0.01;
+    let pulsate_amplitude = 0.6 + position.y * 0.02;
     let t = uniforms.time as f32 * 0.02;
 
     let pulsate = (t * base_frequency).sin() * pulsate_amplitude;
@@ -300,7 +335,7 @@ pub fn solar_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
         (position.z + pulsate) * 500.0,
     );
 
-    let adjusted_noise = (noise_value + fine_noise * 0.6) * 1.8 - 0.4; 
+    let adjusted_noise = (noise_value + fine_noise * 0.6) * 1.8 - 0.4;
 
     let high_freq_noise = uniforms.noise.get_noise_3d(
         position.x * 2000.0,
@@ -308,19 +343,364 @@ pub fn solar_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
         (position.z + pulsate) * 2000.0,
     ) * 0.03;
 
-    let bands_pattern1 = (position.y * 6.0 + noise_value * 25.0 + t * 0.15).sin() * 0.2; 
+    let bands_pattern1 = (position.y * 6.0 + noise_value * 25.0 + t * 0.15).sin() * 0.2;
     let bands_pattern2 = (position.y * 10.0 + noise_value * 50.0 + t * 0.08).sin() * 0.1;
 
     let combined_bands = bands_pattern1 + bands_pattern2 + high_freq_noise;
 
     let color = if adjusted_noise + combined_bands > 0.4 {
-        mid_color.lerp(&bright_color, adjusted_noise + combined_bands - 0.4) 
+        mid_color.lerp(&bright_color, adjusted_noise + combined_bands - 0.4)
     } else {
-        dark_color.lerp(&mid_color, (adjusted_noise + combined_bands) * 2.5) 
+        dark_color.lerp(&mid_color, (adjusted_noise + combined_bands) * 2.5)
     };
 
-    let pulse_effect = 1.0 + 0.15 * ((t * 1.5 + position.x * 0.05).sin()); 
+    let pulse_effect = 1.0 + 0.15 * ((t * 1.5 + position.x * 0.05).sin());
     let final_color = color * pulse_effect;
 
     final_color * fragment.intensity
 }
+
+pub fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let bright_color = Color::new(230, 120, 70);
+    let mid_color = Color::new(140, 70, 40);
+    let dark_color = Color::new(30, 10, 5);
+
+    let position = Vec3::new(
+        fragment.vertex_position.x,
+        fragment.vertex_position.y,
+        fragment.depth,
+    );
+
+    let zoom = 1200.0;
+
+    // Obtener ruido para la superficie rocosa
+    let noise_value1 =
+        uniforms
+            .noise
+            .get_noise_3d(position.x * zoom, position.y * zoom, position.z * zoom);
+
+    let noise_value2 = uniforms.noise.get_noise_3d(
+        (position.x + 400.0) * zoom,
+        (position.y + 400.0) * zoom,
+        (position.z + 400.0) * zoom,
+    );
+
+    let noise_value = (noise_value1 + noise_value2) * 0.5;
+
+    let crater_frequency = 1.5;
+    let crater_amplitude = 2.0;
+    let crater_value = (position.x * crater_frequency + position.y * crater_frequency).sin()
+        * (position.x * crater_frequency - position.y * crater_frequency).cos()
+        * crater_amplitude;
+
+    let mut combined_value = (noise_value + crater_value).clamp(0.0, 1.0);
+
+    let fine_noise = uniforms.noise.get_noise_3d(
+        position.x * 1600.0,
+        position.y * 1600.0,
+        position.z * 1600.0,
+    ) * 0.3;
+
+    combined_value = (combined_value + fine_noise).clamp(0.0, 1.0);
+
+    let fracture_noise = uniforms.noise.get_noise_3d(
+        position.x * 2000.0,
+        position.y * 2000.0,
+        position.z * 2000.0,
+    ) * 0.15;
+    combined_value = (combined_value + fracture_noise).clamp(0.0, 1.0);
+
+    let color = if combined_value > 0.5 {
+        mid_color.lerp(&bright_color, (combined_value - 0.5) * 1.5)
+    } else {
+        dark_color.lerp(&mid_color, combined_value * 2.0)
+    };
+
+    let light_factor = (position.y * 0.5 + uniforms.time as f32 * 0.0015).sin() * 0.1 + 1.0;
+    let directional_light = (position.x * 0.3 + uniforms.time as f32 * 0.002).cos() * 0.05 + 1.0;
+    let final_light_factor = light_factor * directional_light;
+    let mut final_color = color * final_light_factor;
+
+    let pulsate_frequency = 0.06;
+    let pulsate_amplitude = 0.1;
+    let pulsate =
+        (uniforms.time as f32 * pulsate_frequency + position.x * 0.02 + position.y * 0.02).sin()
+            * pulsate_amplitude;
+    final_color = final_color * (1.0 + pulsate);
+
+    let shadow_texture_noise = uniforms.noise.get_noise_3d(
+        position.x * 2500.0,
+        position.y * 2500.0,
+        position.z * 2500.0,
+    ) * 0.3;
+    final_color = final_color * (1.0 + shadow_texture_noise);
+
+    let highlight_texture_noise = uniforms.noise.get_noise_3d(
+        position.x * 3000.0,
+        position.y * 3000.0,
+        position.z * 3000.0,
+    ) * 0.25;
+    final_color = final_color * (1.0 + highlight_texture_noise);
+
+    let depth_variation = uniforms.noise.get_noise_3d(
+        position.x * 3500.0,
+        position.y * 3500.0,
+        position.z * 3500.0,
+    ) * 0.1;
+    final_color = final_color * (1.0 + depth_variation);
+
+    final_color * fragment.intensity
+}
+
+pub fn rocky_planet_variant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let bright_color = Color::new(237, 201, 175);  
+    let mid_color = Color::new(193, 154, 107);  
+    let dark_color = Color::new(139, 108, 66);  
+
+
+    let position = Vec3::new(
+        fragment.vertex_position.x,
+        fragment.vertex_position.y,
+        fragment.depth,
+    );
+
+    let zoom = 1000.0;
+
+    // Obtener ruido para la superficie rocosa
+    let noise_value1 =
+        uniforms
+            .noise
+            .get_noise_3d(position.x * zoom, position.y * zoom, position.z * zoom);
+
+    let noise_value2 = uniforms.noise.get_noise_3d(
+        (position.x + 400.0) * zoom,
+        (position.y + 400.0) * zoom,
+        (position.z + 400.0) * zoom,
+    );
+
+    let noise_value = (noise_value1 + noise_value2) * 0.5;
+
+    let crater_frequency = 1.5;
+    let crater_amplitude = 2.0;
+    let crater_value = (position.x * crater_frequency + position.y * crater_frequency).sin()
+        * (position.x * crater_frequency - position.y * crater_frequency).cos()
+        * crater_amplitude;
+
+    let mut combined_value = (noise_value + crater_value).clamp(0.0, 1.0);
+
+    let fine_noise = uniforms.noise.get_noise_3d(
+        position.x * 1600.0,
+        position.y * 1600.0,
+        position.z * 1600.0,
+    ) * 0.3;
+
+    combined_value = (combined_value + fine_noise).clamp(0.0, 1.0);
+
+    let fracture_noise = uniforms.noise.get_noise_3d(
+        position.x * 2000.0,
+        position.y * 2000.0,
+        position.z * 2000.0,
+    ) * 0.15;
+    combined_value = (combined_value + fracture_noise).clamp(0.0, 1.0);
+
+    let color = if combined_value > 0.5 {
+        mid_color.lerp(&bright_color, (combined_value - 0.5) * 1.5)
+    } else {
+        dark_color.lerp(&mid_color, combined_value * 2.0)
+    };
+
+    let light_factor = (position.y * 0.5 + uniforms.time as f32 * 0.0015).sin() * 0.1 + 1.0;
+    let directional_light = (position.x * 0.3 + uniforms.time as f32 * 0.002).cos() * 0.05 + 1.0;
+    let final_light_factor = light_factor * directional_light;
+    let mut final_color = color * final_light_factor;
+
+    let pulsate_frequency = 0.04;
+    let pulsate_amplitude = 0.08;
+    let pulsate =
+        (uniforms.time as f32 * pulsate_frequency + position.x * 0.02 + position.y * 0.02).sin()
+            * pulsate_amplitude;
+    final_color = final_color * (1.0 + pulsate);
+
+    let shadow_texture_noise = uniforms.noise.get_noise_3d(
+        position.x * 2500.0,
+        position.y * 2500.0,
+        position.z * 2500.0,
+    ) * 0.3;
+    final_color = final_color * (1.0 + shadow_texture_noise);
+
+    let highlight_texture_noise = uniforms.noise.get_noise_3d(
+        position.x * 3000.0,
+        position.y * 3000.0,
+        position.z * 3000.0,
+    ) * 0.25;
+    final_color = final_color * (1.0 + highlight_texture_noise);
+
+    let depth_variation = uniforms.noise.get_noise_3d(
+        position.x * 3500.0,
+        position.y * 3500.0,
+        position.z * 3500.0,
+    ) * 0.1;
+    final_color = final_color * (1.0 + depth_variation);
+
+    final_color * fragment.intensity
+}
+
+pub fn alien_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let ocean_color = Color::new(25, 25, 112);
+    let flora_color = Color::new(110, 62, 136);
+    let alien_color = Color::new(13, 246, 243);
+
+    let position = Vec3::new(
+        fragment.vertex_position.x,
+        fragment.vertex_position.y,
+        fragment.depth,
+    );
+    let zoom = 400.0;
+
+    let time_factor = uniforms.time as f32 * 0.15;
+
+    let noise_value1 = uniforms.noise.get_noise_3d(
+        position.x * zoom + time_factor,
+        position.y * zoom + time_factor,
+        position.z * zoom + time_factor,
+    );
+
+    let noise_value2 = uniforms.noise.get_noise_3d(
+        (position.x + 300.0) * zoom + time_factor,
+        (position.y + 300.0) * zoom + time_factor,
+        (position.z + 300.0) * zoom + time_factor,
+    );
+
+    let noise_value = (noise_value1 + noise_value2) * 0.5;
+
+    let drift_noise = uniforms.noise.get_noise_3d(
+        position.x * 0.05 + time_factor,
+        position.y * 0.05 + time_factor,
+        position.z * 0.05 + time_factor,
+    );
+
+    let combined_value = (noise_value + drift_noise * 0.4).clamp(0.0, 1.0);
+
+    let base_color = if combined_value > 0.75 {
+        alien_color
+    } else if combined_value > 0.4 {
+        flora_color
+    } else {
+        ocean_color
+    };
+
+    let texture_zoom1 = 500.0;
+    let texture_noise1 = uniforms.noise.get_noise_3d(
+        position.x * texture_zoom1,
+        position.y * texture_zoom1,
+        position.z * texture_zoom1,
+    ) * 0.3;
+
+    let texture_zoom2 = 1000.0;
+    let texture_noise2 = uniforms.noise.get_noise_3d(
+        position.x * texture_zoom2,
+        position.y * texture_zoom2,
+        position.z * texture_zoom2,
+    ) * 0.25;
+
+    let texture_zoom3 = 1500.0;
+    let texture_noise3 = uniforms.noise.get_noise_3d(
+        position.x * texture_zoom3,
+        position.y * texture_zoom3,
+        position.z * texture_zoom3,
+    ) * 0.2;
+
+    let texture_zoom4 = 2000.0;
+    let texture_noise4 = uniforms.noise.get_noise_3d(
+        position.x * texture_zoom4,
+        position.y * texture_zoom4,
+        position.z * texture_zoom4,
+    ) * 0.15;
+
+    let background_noise1 = uniforms.noise.get_noise_3d(
+        position.x * 2500.0,
+        position.y * 2500.0,
+        position.z * 2500.0,
+    ) * 0.15;
+
+    let background_noise2 = uniforms.noise.get_noise_3d(
+        position.x * 3500.0,
+        position.y * 3500.0,
+        position.z * 3500.0,
+    ) * 0.1;
+
+    let texture_combined = (texture_noise1
+        + texture_noise2
+        + texture_noise3
+        + texture_noise4
+        + background_noise1
+        + background_noise2)
+        .clamp(0.0, 1.0);
+
+    let texturized_color = base_color * (1.0 + texture_combined);
+
+    let limited_texturized_color = texturized_color.limit_min(50);
+
+    let light_factor = (position.y * 0.5 + uniforms.time as f32 * 0.001).sin() * 0.2 + 1.0;
+    let directional_light = (position.x * 0.4 + uniforms.time as f32 * 0.0015).cos() * 0.2 + 1.0;
+    let final_light_factor = light_factor * directional_light;
+
+    let illuminated_color = limited_texturized_color * final_light_factor;
+
+    let final_color = illuminated_color.limit_min(50);
+
+    final_color * fragment.intensity
+}
+
+pub fn glacial_textured_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let ice_blue = Color::new(173, 216, 230);  
+
+    let position = Vec3::new(
+        fragment.vertex_position.x,
+        fragment.vertex_position.y,
+        fragment.depth,
+    );
+
+    let zoom = 100.0;
+
+    let time_factor = uniforms.time as f32 * 0.1;
+
+    let base_noise = uniforms.noise.get_noise_3d(
+        position.x * zoom,
+        position.y * zoom,
+        position.z * zoom,
+    ) * 0.6;
+
+    let detail_noise1 = uniforms.noise.get_noise_3d(
+        position.x * 700.0,
+        position.y * 700.0,
+        position.z * 700.0,
+    ) * 0.5;
+
+    let detail_noise2 = uniforms.noise.get_noise_3d(
+        position.x * 1200.0 + time_factor,
+        position.y * 1200.0 + time_factor,
+        position.z * 1200.0 + time_factor,
+    ) * 0.4;
+
+    let fine_detail_noise = uniforms.noise.get_noise_3d(
+        position.x * 2500.0,
+        position.y * 2500.0,
+        position.z * 2500.0,
+    ) * 0.3;
+
+    let combined_texture = (base_noise + detail_noise1 + detail_noise2 + fine_detail_noise).clamp(0.0, 1.0);
+
+    let texturized_color = ice_blue * (1.0 + combined_texture);
+
+    let flicker_effect = (position.x * 0.05 + uniforms.time as f32 * 0.005).sin() * 0.1 + 0.9;
+    let flicker_light = (position.y * 0.03 + uniforms.time as f32 * 0.007).cos() * 0.1 + 0.95;
+    let final_flicker_factor = flicker_effect * flicker_light;
+
+    let illuminated_color = texturized_color * final_flicker_factor;
+
+    let final_color = illuminated_color.limit_min(60);
+
+    final_color * fragment.intensity
+}
+
