@@ -61,20 +61,52 @@ pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms, shader_type: &S
 }
 
 pub fn moon_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-    let base_color = Color::new(200, 200, 200); // Color gris claro para la luna
+    let position = fragment.vertex_position;
+    let time = uniforms.time as f32 * 0.001;
+
+    let base_color = Color::new(180, 180, 180);  
+    let crater_color = Color::new(100, 100, 100);
+    let dust_color = Color::new(150, 150, 150);   
+
+    let craters = uniforms.noise.get_noise_3d(
+        position.x * 150.0,
+        position.y * 150.0,
+        position.z * 150.0,
+    ).abs();
+
+    let dust = uniforms.noise.get_noise_3d(
+        position.x * 80.0 + time,
+        position.y * 80.0,
+        position.z * 80.0,
+    );
+
+    let surface_details = uniforms.noise.get_noise_3d(
+        position.x * 200.0,
+        position.y * 200.0,
+        position.z * 200.0,
+    ).abs();
+
+    let mut final_color = base_color;
+
+    if craters > 0.7 {
+        final_color = final_color.lerp(&crater_color, (craters - 0.7) * 2.0);
+    }
+
+    final_color = final_color.lerp(&dust_color, dust.abs() * 0.2);
+
+    if surface_details > 0.8 {
+        final_color = final_color.lerp(&crater_color, (surface_details - 0.8) * 0.5);
+    }
+
     let light_dir = Vec3::new(0.6, 0.8, 0.4).normalize();
-    let normal = fragment.vertex_position.normalize();
+    let normal = position.normalize();
     let lambertian = light_dir.dot(&normal).max(0.0);
     let shading_factor = 0.75 + 0.25 * lambertian;
 
-    let noise_value = uniforms.noise.get_noise_2d(
-        fragment.vertex_position.x * 20.0,
-        fragment.vertex_position.y * 20.0,
-    );
-    let final_color = base_color * (shading_factor + noise_value * 0.1);
-
+    final_color = final_color * shading_factor;
     final_color * fragment.intensity
 }
+
 
 pub fn gas_giant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
     let base_colors = [
@@ -94,7 +126,6 @@ pub fn gas_giant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
         dynamic_y * distortion_scale,
     );
 
-    // Se modifica la posición 'y' con la distorsión para crear bandas más suaves y añadir variación en 'x'
     let distorted_y = dynamic_y + distortion_value * 0.1 + fragment.vertex_position.x * 0.05;
 
     let band_frequency = 40.0;
@@ -703,4 +734,3 @@ pub fn glacial_textured_shader(fragment: &Fragment, uniforms: &Uniforms) -> Colo
 
     final_color * fragment.intensity
 }
-
