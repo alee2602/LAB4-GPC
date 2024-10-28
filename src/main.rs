@@ -169,7 +169,7 @@ fn main() {
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
     let mut window = Window::new(
-        "Animated Fragment Shader",
+        "Celestial Bodies",
         window_width,
         window_height,
         WindowOptions::default(),
@@ -179,7 +179,7 @@ fn main() {
     window.set_position(500, 500);
     window.update();
 
-    framebuffer.set_background_color(0x333355);
+    framebuffer.set_background_color(0x000000);
 
     // model position
     let translation = Vec3::new(0.0, 0.0, 0.0);
@@ -254,8 +254,8 @@ fn main() {
         render(&mut framebuffer, &uniforms, &vertex_arrays, &current_shader);
 
         if current_shader == ShaderType::RockyPlanet {
-            let orbit_radius = 2.0; // Radio de la órbita de la luna alrededor del planeta
-            let orbit_speed = 0.005; // Velocidad de la órbita de la luna
+            let orbit_radius = 2.0; 
+            let orbit_speed = 0.005; 
             let moon_x = orbit_radius * (time as f32 * orbit_speed).cos();
             let moon_z = orbit_radius * (time as f32 * orbit_speed).sin();
 

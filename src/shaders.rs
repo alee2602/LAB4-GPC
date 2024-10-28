@@ -586,7 +586,7 @@ pub fn alien_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
         fragment.vertex_position.y,
         fragment.depth,
     );
-    let zoom = 400.0;
+    let zoom = 450.0;
 
     let time_factor = uniforms.time as f32 * 0.15;
 
@@ -620,7 +620,7 @@ pub fn alien_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
         ocean_color
     };
 
-    let texture_zoom1 = 500.0;
+    let texture_zoom1 = 700.0;
     let texture_noise1 = uniforms.noise.get_noise_3d(
         position.x * texture_zoom1,
         position.y * texture_zoom1,
