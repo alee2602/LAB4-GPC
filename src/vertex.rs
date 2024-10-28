@@ -22,22 +22,6 @@ impl Vertex {
             transformed_normal: normal,
         }
     }
-
-    pub fn new_with_color(position: Vec3, color: Color) -> Self {
-        Vertex {
-            position,
-            normal: Vec3::new(0.0, 0.0, 0.0),
-            tex_coords: Vec2::new(0.0, 0.0),
-            color,
-            transformed_position: Vec3::new(0.0, 0.0, 0.0),
-            transformed_normal: Vec3::new(0.0, 0.0, 0.0),
-        }
-    }
-
-    pub fn set_transformed(&mut self, position: Vec3, normal: Vec3) {
-        self.transformed_position = position;
-        self.transformed_normal = normal;
-    }
 }
 
 impl Default for Vertex {

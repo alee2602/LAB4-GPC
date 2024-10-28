@@ -18,16 +18,6 @@ impl Camera {
         }
     }
 
-    pub fn basis_change(&self, vector: &Vec3) -> Vec3 {
-        let forward = (self.center - self.eye).normalize();
-        let right = forward.cross(&self.up).normalize();
-        let up = right.cross(&forward).normalize();
-
-        let rotated = vector.x * right + vector.y * up + -vector.z * forward;
-
-        rotated.normalize()
-    }
-
     pub fn orbit(&mut self, delta_yaw: f32, delta_pitch: f32) {
         let radius_vector = self.eye - self.center;
         let radius = radius_vector.magnitude();
@@ -74,12 +64,4 @@ impl Camera {
         self.has_changed = true;
     }
 
-    pub fn check_if_changed(&mut self) -> bool {
-        if self.has_changed {
-            self.has_changed = false;
-            true
-        } else {
-            false
-        }
-    }
 }
