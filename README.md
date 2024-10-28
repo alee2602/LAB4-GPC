@@ -6,7 +6,7 @@
 
 ### Rocky Planets
 
-###Sun
+### Sun
 
 ### Others
 
